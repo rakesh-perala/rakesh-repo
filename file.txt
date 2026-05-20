@@ -1,0 +1,95 @@
+#!/bin/bash
+
+set -e  # stop script if any command fails
+
+echo "============================"
+echo "Updating system packages"
+echo "============================"
+
+sudo apt update -y
+
+echo "============================"
+echo "Installing Java 17, wget, tar, curl"
+echo "============================"
+
+sudo apt install openjdk-17-jdk wget tar curl -y
+
+java -version
+
+echo "============================"
+echo "Setting up /opt directory"
+echo "============================"
+
+cd /opt || exit 1
+
+echo "============================"
+echo "Fetching latest Tomcat 10 version"
+echo "============================"
+
+TOMCAT_VERSION=$(curl -s https://dlcdn.apache.org/tomcat/tomcat-10/ | grep -oP '10\.1\.[0-9]+' | head -1)
+
+echo "Latest Tomcat version detected: $TOMCAT_VERSION"
+
+echo "============================"
+echo "Downloading Tomcat"
+echo "============================"
+
+sudo wget -P /opt https://dlcdn.apache.org/tomcat/tomcat-10/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
+
+echo "============================"
+echo "Extracting Tomcat"
+echo "============================"
+
+sudo tar -xvzf /opt/apache-tomcat-${TOMCAT_VERSION}.tar.gz -C /opt
+
+echo "============================"
+echo "Renaming folder"
+echo "============================"
+
+sudo mv /opt/apache-tomcat-${TOMCAT_VERSION} /opt/tomcat
+
+echo "============================"
+echo "Setting permissions"
+echo "============================"
+
+sudo chmod -R 755 /opt/tomcat
+
+echo "============================"
+echo "Creating Tomcat user"
+echo "============================"
+
+sudo sed -i '/<\/tomcat-users>/i \
+<role rolename="manager-gui"/>\
+<role rolename="manager-script"/>\
+<role rolename="admin-gui"/>\
+<role rolename="admin-script"/>\
+<user username="tomcat" password="root123556" roles="manager-gui,manager-script,admin-gui,admin-script"/>' /opt/tomcat/conf/tomcat-users.xml
+
+echo "============================"
+echo "Allowing remote access to Manager apps"
+echo "============================"
+
+sudo sed -i '/RemoteAddrValve/d' /opt/tomcat/webapps/manager/META-INF/context.xml || true
+sudo sed -i '/RemoteAddrValve/d' /opt/tomcat/webapps/host-manager/META-INF/context.xml || true
+
+echo "============================"
+echo "Making scripts executable"
+echo "============================"
+
+sudo chmod +x /opt/tomcat/bin/*.sh
+
+echo "============================"
+echo "Starting Tomcat"
+echo "============================"
+
+sudo /opt/tomcat/bin/startup.sh
+
+sleep 10
+
+echo "============================"
+echo "TOMCAT INSTALLED SUCCESSFULLY"
+echo "============================"
+
+echo "URL: http://<YOUR-EC2-PUBLIC-IP>:8080"
+echo "Username: tomcat"
+echo "Password: root123556"
